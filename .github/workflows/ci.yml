@@ -120,5 +120,7 @@ jobs:
           import zipfile
           with zipfile.ZipFile('monitor-pointer-lock@incirci.github.io.shell-extension.zip') as archive:
               assert 'schemas/gschemas.compiled' in archive.namelist()
+              assert 'LICENSE' in archive.namelist()
+              assert 'NOTICE' in archive.namelist()
           print('ok')
           EOF
