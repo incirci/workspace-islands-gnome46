@@ -40,12 +40,12 @@ import St from 'gi://St';
 
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { ANIMATION_TIME } from 'resource:///org/gnome/shell/ui/workspaceSwitcherPopup.js';
 
 import { monitorIndexOf } from './monitorState.js';
 
 /** How long the pill stays up. The shell keeps its copy private, so: duplicated. */
 const DISPLAY_TIMEOUT = 600;
+const ANIMATION_TIME = 150;
 
 const MonitorPopup = GObject.registerClass(
 class IslandsMonitorPopup extends Clutter.Actor {
