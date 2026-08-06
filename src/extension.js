@@ -15,6 +15,7 @@ export default class MonitorPointerLockExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._barriers = [];
+        this._barrierKeys = new Set();
         this._signals = [
             [Main.layoutManager, Main.layoutManager.connect(
                 'monitors-changed', () => this._rebuild())],
@@ -22,6 +23,8 @@ export default class MonitorPointerLockExtension extends Extension {
                 'changed::enabled', () => this._rebuild())],
             [this._settings, this._settings.connect(
                 'changed::edge-inset', () => this._rebuild())],
+            [this._settings, this._settings.connect(
+                'changed::keep-pointer-visible', () => this._rebuild())],
         ];
 
         this._rebuild();
@@ -47,6 +50,9 @@ export default class MonitorPointerLockExtension extends Extension {
             for (let second = first + 1; second < monitors.length; second++)
                 this._addSharedEdge(monitors[first], monitors[second]);
         }
+
+        if (this._settings.get_boolean('keep-pointer-visible'))
+            this._addOuterEdgeBarriers(monitors);
     }
 
     _addSharedEdge(first, second) {
@@ -61,65 +67,109 @@ export default class MonitorPointerLockExtension extends Extension {
         // visible cursor away from the ambiguous shared boundary without
         // moving the pointer after it arrives there.
         if (vertical && first.x + first.width === second.x) {
-            this._addDirectionalBarriers(
-                second.x, vertical[0], vertical[1],
-                Meta.BarrierDirection.NEGATIVE_X,
-                Meta.BarrierDirection.POSITIVE_X,
-                'x');
+            this._addVerticalBarriers(second.x, first, second);
         } else if (vertical && second.x + second.width === first.x) {
-            this._addDirectionalBarriers(
-                first.x, vertical[0], vertical[1],
-                Meta.BarrierDirection.NEGATIVE_X,
-                Meta.BarrierDirection.POSITIVE_X,
-                'x');
+            this._addVerticalBarriers(first.x, second, first);
         // A horizontal shared edge: one monitor is above the other.
         } else if (horizontal && first.y + first.height === second.y) {
-            this._addDirectionalBarriers(
-                second.y, horizontal[0], horizontal[1],
-                Meta.BarrierDirection.NEGATIVE_Y,
-                Meta.BarrierDirection.POSITIVE_Y,
-                'y');
+            this._addHorizontalBarriers(second.y, first, second);
         } else if (horizontal && second.y + second.height === first.y) {
-            this._addDirectionalBarriers(
-                first.y, horizontal[0], horizontal[1],
-                Meta.BarrierDirection.NEGATIVE_Y,
-                Meta.BarrierDirection.POSITIVE_Y,
-                'y');
+            this._addHorizontalBarriers(first.y, second, first);
         }
     }
 
-    _addDirectionalBarriers(boundary, start, end,
-        towardNegative, towardPositive, axis) {
+    _addVerticalBarriers(boundary, left, right) {
         const edgeInset = this._settings.get_int('edge-inset');
-        const parallelDirections = axis === 'x'
-            ? Meta.BarrierDirection.POSITIVE_Y |
-                Meta.BarrierDirection.NEGATIVE_Y
-            : Meta.BarrierDirection.POSITIVE_X |
-                Meta.BarrierDirection.NEGATIVE_X;
-        if (axis === 'x') {
-            // Allow motion back into the source monitor and all motion along
-            // the edge. Only the outward component is blocked.
-            this._addBarrier(
-                boundary - edgeInset, start,
-                boundary - edgeInset, end,
-                towardNegative | parallelDirections);
-            this._addBarrier(
-                boundary + edgeInset, start,
-                boundary + edgeInset, end,
-                towardPositive | parallelDirections);
-        } else {
-            this._addBarrier(
-                start, boundary - edgeInset,
-                end, boundary - edgeInset,
-                towardNegative | parallelDirections);
-            this._addBarrier(
-                start, boundary + edgeInset,
-                end, boundary + edgeInset,
-                towardPositive | parallelDirections);
+        const parallel = Meta.BarrierDirection.POSITIVE_Y |
+            Meta.BarrierDirection.NEGATIVE_Y;
+
+        // Cover the complete source-monitor sides so fast diagonal movement
+        // cannot bypass an endpoint of the shared segment.
+        this._addBarrier(
+            boundary - edgeInset, left.y,
+            boundary - edgeInset, left.y + left.height,
+            Meta.BarrierDirection.NEGATIVE_X | parallel);
+        this._addBarrier(
+            boundary + edgeInset, right.y,
+            boundary + edgeInset, right.y + right.height,
+            Meta.BarrierDirection.POSITIVE_X | parallel);
+    }
+
+    _addHorizontalBarriers(boundary, top, bottom) {
+        const edgeInset = this._settings.get_int('edge-inset');
+        const parallel = Meta.BarrierDirection.POSITIVE_X |
+            Meta.BarrierDirection.NEGATIVE_X;
+
+        this._addBarrier(
+            top.x, boundary - edgeInset,
+            top.x + top.width, boundary - edgeInset,
+            Meta.BarrierDirection.NEGATIVE_Y | parallel);
+        this._addBarrier(
+            bottom.x, boundary + edgeInset,
+            bottom.x + bottom.width, boundary + edgeInset,
+            Meta.BarrierDirection.POSITIVE_Y | parallel);
+    }
+
+    _addOuterEdgeBarriers(monitors) {
+        const edgeInset = this._settings.get_int('edge-inset');
+        const verticalParallel = Meta.BarrierDirection.POSITIVE_Y |
+            Meta.BarrierDirection.NEGATIVE_Y;
+        const horizontalParallel = Meta.BarrierDirection.POSITIVE_X |
+            Meta.BarrierDirection.NEGATIVE_X;
+
+        for (const monitor of monitors) {
+            const right = monitor.x + monitor.width;
+            const bottom = monitor.y + monitor.height;
+            const coveredRight = [];
+            const coveredBottom = [];
+
+            for (const other of monitors) {
+                if (other === monitor)
+                    continue;
+
+                if (right === other.x) {
+                    const span = overlap(
+                        monitor.y, bottom,
+                        other.y, other.y + other.height);
+                    if (span)
+                        coveredRight.push(span);
+                }
+
+                if (bottom === other.y) {
+                    const span = overlap(
+                        monitor.x, right,
+                        other.x, other.x + other.width);
+                    if (span)
+                        coveredBottom.push(span);
+                }
+            }
+
+            for (const [start, end] of uncoveredSegments(
+                monitor.y, bottom, coveredRight)) {
+                this._addBarrier(
+                    right - edgeInset, start,
+                    right - edgeInset, end,
+                    Meta.BarrierDirection.NEGATIVE_X | verticalParallel,
+                    false);
+            }
+
+            for (const [start, end] of uncoveredSegments(
+                monitor.x, right, coveredBottom)) {
+                this._addBarrier(
+                    start, bottom - edgeInset,
+                    end, bottom - edgeInset,
+                    Meta.BarrierDirection.NEGATIVE_Y | horizontalParallel,
+                    false);
+            }
         }
     }
 
-    _addBarrier(x1, y1, x2, y2, directions) {
+    _addBarrier(x1, y1, x2, y2, directions, ctrlUnlocks = true) {
+        const key = `${x1}:${y1}:${x2}:${y2}:${directions}:${ctrlUnlocks}`;
+        if (this._barrierKeys.has(key))
+            return;
+        this._barrierKeys.add(key);
+
         const barrier = new Meta.Barrier({
             backend: global.backend,
             x1,
@@ -129,8 +179,10 @@ export default class MonitorPointerLockExtension extends Extension {
             directions,
             flags: Meta.BarrierFlags.NONE,
         });
-        const hitId = barrier.connect('hit', (_barrier, event) =>
-            this._onBarrierHit(barrier, event));
+        const hitId = ctrlUnlocks
+            ? barrier.connect('hit', (_barrier, event) =>
+                this._onBarrierHit(barrier, event))
+            : 0;
         this._barriers.push([barrier, hitId]);
     }
 
@@ -149,10 +201,12 @@ export default class MonitorPointerLockExtension extends Extension {
 
     _clearBarriers() {
         for (const [barrier, hitId] of this._barriers ?? []) {
-            barrier.disconnect(hitId);
+            if (hitId)
+                barrier.disconnect(hitId);
             barrier.destroy();
         }
         this._barriers = [];
+        this._barrierKeys?.clear();
     }
 }
 
@@ -160,4 +214,33 @@ function overlap(startA, endA, startB, endB) {
     const start = Math.max(startA, startB);
     const end = Math.min(endA, endB);
     return end > start ? [start, end] : null;
+}
+
+function uncoveredSegments(start, end, covered) {
+    const merged = covered
+        .map(([coveredStart, coveredEnd]) => [
+            Math.max(start, coveredStart),
+            Math.min(end, coveredEnd),
+        ])
+        .filter(([coveredStart, coveredEnd]) => coveredEnd > coveredStart)
+        .sort((first, second) => first[0] - second[0])
+        .reduce((result, segment) => {
+            const previous = result.at(-1);
+            if (previous && segment[0] <= previous[1])
+                previous[1] = Math.max(previous[1], segment[1]);
+            else
+                result.push(segment);
+            return result;
+        }, []);
+
+    const uncovered = [];
+    let position = start;
+    for (const [coveredStart, coveredEnd] of merged) {
+        if (coveredStart > position)
+            uncovered.push([position, coveredStart]);
+        position = Math.max(position, coveredEnd);
+    }
+    if (position < end)
+        uncovered.push([position, end]);
+    return uncovered;
 }
