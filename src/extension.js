@@ -1,12 +1,11 @@
 /**
  * Monitor Pointer Lock
  *
- * Keep the pointer on its current monitor. Holding Ctrl at a display edge
- * removes the barriers before the next pointer motion, so it can cross freely.
+ * Keep the pointer on its current monitor. Holding Ctrl while crossing a
+ * shared display edge releases that crossing.
  */
 
 import Clutter from 'gi://Clutter';
-import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -18,8 +17,6 @@ export default class MonitorPointerLockExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._barriers = [];
-        this._modifierPollId = 0;
-        this._unlockedWithCtrl = false;
         this._signals = [
             [Main.layoutManager, Main.layoutManager.connect(
                 'monitors-changed', () => this._rebuild())],
@@ -32,10 +29,6 @@ export default class MonitorPointerLockExtension extends Extension {
     }
 
     disable() {
-        if (this._modifierPollId) {
-            GLib.Source.remove(this._modifierPollId);
-            this._modifierPollId = 0;
-        }
         this._clearBarriers();
 
         for (const [object, signalId] of this._signals ?? [])
@@ -46,7 +39,7 @@ export default class MonitorPointerLockExtension extends Extension {
 
     _rebuild() {
         this._clearBarriers();
-        if (!this._settings.get_boolean('enabled') || this._unlockedWithCtrl)
+        if (!this._settings.get_boolean('enabled'))
             return;
 
         const monitors = Main.layoutManager.monitors;
@@ -142,30 +135,11 @@ export default class MonitorPointerLockExtension extends Extension {
     }
 
     _onBarrierHit(barrier, event) {
-        if (this._unlockedWithCtrl)
-            return;
-
-        // With correctly directed barriers, Mutter permits movement away from
-        // a hit barrier without intervention. Only release it for Ctrl.
-        if (!this._isCtrlDown())
-            return;
-
-        barrier.release(event);
-        this._clearBarriers();
-        this._unlockedWithCtrl = true;
-        this._modifierPollId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT, 25,
-            () => this._waitForCtrlRelease());
-    }
-
-    _waitForCtrlRelease() {
-        if (!this._isCtrlDown()) {
-            this._modifierPollId = 0;
-            this._unlockedWithCtrl = false;
-            this._rebuild();
-            return GLib.SOURCE_REMOVE;
-        }
-        return GLib.SOURCE_CONTINUE;
+        // Keep every barrier installed. Ctrl releases only this crossing;
+        // without Ctrl, Mutter holds the pointer and allows motion back into
+        // the monitor it came from.
+        if (this._isCtrlDown())
+            barrier.release(event);
     }
 
     _clearBarriers() {
