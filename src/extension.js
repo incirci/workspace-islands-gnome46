@@ -12,13 +12,13 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+const EDGE_INSET = 8;
+
 export default class MonitorPointerLockExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._seat = Clutter.get_default_backend().get_default_seat();
         this._barriers = [];
         this._modifierPollId = 0;
-        this._rearmId = 0;
         this._unlockedWithCtrl = false;
         this._signals = [
             [Main.layoutManager, Main.layoutManager.connect(
@@ -36,23 +36,17 @@ export default class MonitorPointerLockExtension extends Extension {
             GLib.Source.remove(this._modifierPollId);
             this._modifierPollId = 0;
         }
-        if (this._rearmId) {
-            GLib.Source.remove(this._rearmId);
-            this._rearmId = 0;
-        }
         this._clearBarriers();
 
         for (const [object, signalId] of this._signals ?? [])
             object.disconnect(signalId);
         this._signals = null;
-        this._seat = null;
         this._settings = null;
     }
 
     _rebuild() {
         this._clearBarriers();
-        if (!this._settings.get_boolean('enabled') ||
-            this._unlockedWithCtrl || this._rearmId)
+        if (!this._settings.get_boolean('enabled') || this._unlockedWithCtrl)
             return;
 
         const monitors = Main.layoutManager.monitors;
@@ -70,11 +64,9 @@ export default class MonitorPointerLockExtension extends Extension {
             first.x, first.x + first.width,
             second.x, second.x + second.width);
 
-        // A vertical shared edge: the monitors are side by side. The positive
-        // and negative barriers must sit on adjacent pixels, not on the same
-        // coordinate. A positive-X barrier at `boundary` holds the cursor one
-        // pixel *inside* the right monitor; placing it at `boundary - 1`
-        // holds it on the left monitor where it belongs.
+        // Put each one-way barrier inside its source monitor. This keeps the
+        // visible cursor away from the ambiguous shared boundary without
+        // moving the pointer after it arrives there.
         if (vertical && first.x + first.width === second.x) {
             this._addDirectionalBarriers(
                 second.x, vertical[0], vertical[1],
@@ -105,11 +97,23 @@ export default class MonitorPointerLockExtension extends Extension {
 
     _addDirectionalBarriers(boundary, start, end, forward, backward, axis) {
         if (axis === 'x') {
-            this._addBarrier(boundary - 1, start, boundary - 1, end, forward);
-            this._addBarrier(boundary, start, boundary, end, backward);
+            this._addBarrier(
+                boundary - EDGE_INSET, start,
+                boundary - EDGE_INSET, end,
+                forward);
+            this._addBarrier(
+                boundary + EDGE_INSET, start,
+                boundary + EDGE_INSET, end,
+                backward);
         } else {
-            this._addBarrier(start, boundary - 1, end, boundary - 1, forward);
-            this._addBarrier(start, boundary, end, boundary, backward);
+            this._addBarrier(
+                start, boundary - EDGE_INSET,
+                end, boundary - EDGE_INSET,
+                forward);
+            this._addBarrier(
+                start, boundary + EDGE_INSET,
+                end, boundary + EDGE_INSET,
+                backward);
         }
     }
 
@@ -123,7 +127,7 @@ export default class MonitorPointerLockExtension extends Extension {
             directions,
         });
         const hitId = barrier.connect('hit', (_barrier, event) =>
-            this._onBarrierHit(barrier, event, directions));
+            this._onBarrierHit(barrier, event));
         this._barriers.push([barrier, hitId]);
     }
 
@@ -132,53 +136,16 @@ export default class MonitorPointerLockExtension extends Extension {
         return Boolean(modifiers & Clutter.ModifierType.CONTROL_MASK);
     }
 
-    _onBarrierHit(barrier, event, direction) {
-        // A second hit may already be queued when the first hit clears all
-        // barriers. Ignore it while a crossing or rearm is in progress.
-        if (this._unlockedWithCtrl || this._rearmId)
+    _onBarrierHit(barrier, event) {
+        if (this._unlockedWithCtrl || !this._isCtrlDown())
             return;
 
         barrier.release(event);
         this._clearBarriers();
-
-        if (this._isCtrlDown()) {
-            this._unlockedWithCtrl = true;
-            this._modifierPollId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT, 25,
-                () => this._waitForCtrlRelease());
-            return;
-        }
-
-        // Mutter clamps a blocked cursor to the barrier coordinate. GNOME can
-        // consider that exact coordinate part of the neighbouring monitor,
-        // especially with mixed display scaling. Move it unambiguously back
-        // into the source monitor, then recreate fresh barriers after the warp
-        // has reached Mutter's input thread.
-        this._warpIntoSourceMonitor(event, direction);
-        this._rearmId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT, 50,
-            () => {
-                this._rearmId = 0;
-                this._rebuild();
-                return GLib.SOURCE_REMOVE;
-            });
-    }
-
-    _warpIntoSourceMonitor(event, direction) {
-        const inset = 8;
-        let x = Math.round(event.x);
-        let y = Math.round(event.y);
-
-        if (direction === Meta.BarrierDirection.POSITIVE_X)
-            x -= inset;
-        else if (direction === Meta.BarrierDirection.NEGATIVE_X)
-            x += inset;
-        else if (direction === Meta.BarrierDirection.POSITIVE_Y)
-            y -= inset;
-        else if (direction === Meta.BarrierDirection.NEGATIVE_Y)
-            y += inset;
-
-        this._seat.warp_pointer(x, y);
+        this._unlockedWithCtrl = true;
+        this._modifierPollId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT, 25,
+            () => this._waitForCtrlRelease());
     }
 
     _waitForCtrlRelease() {
