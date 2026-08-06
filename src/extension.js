@@ -91,27 +91,31 @@ export default class MonitorPointerLockExtension extends Extension {
     _addDirectionalBarriers(boundary, start, end,
         towardNegative, towardPositive, axis) {
         const edgeInset = this._settings.get_int('edge-inset');
+        const parallelDirections = axis === 'x'
+            ? Meta.BarrierDirection.POSITIVE_Y |
+                Meta.BarrierDirection.NEGATIVE_Y
+            : Meta.BarrierDirection.POSITIVE_X |
+                Meta.BarrierDirection.NEGATIVE_X;
         if (axis === 'x') {
-            // Meta.Barrier directions are allowed directions. The barrier in
-            // the left monitor allows leftward motion back into that monitor;
-            // the one in the right monitor allows rightward motion back.
+            // Allow motion back into the source monitor and all motion along
+            // the edge. Only the outward component is blocked.
             this._addBarrier(
                 boundary - edgeInset, start,
                 boundary - edgeInset, end,
-                towardNegative);
+                towardNegative | parallelDirections);
             this._addBarrier(
                 boundary + edgeInset, start,
                 boundary + edgeInset, end,
-                towardPositive);
+                towardPositive | parallelDirections);
         } else {
             this._addBarrier(
                 start, boundary - edgeInset,
                 end, boundary - edgeInset,
-                towardNegative);
+                towardNegative | parallelDirections);
             this._addBarrier(
                 start, boundary + edgeInset,
                 end, boundary + edgeInset,
-                towardPositive);
+                towardPositive | parallelDirections);
         }
     }
 
