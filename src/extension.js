@@ -80,34 +80,70 @@ export default class MonitorPointerLockExtension extends Extension {
 
     _addVerticalBarriers(boundary, left, right) {
         const edgeInset = this._settings.get_int('edge-inset');
-        const parallel = Meta.BarrierDirection.POSITIVE_Y |
-            Meta.BarrierDirection.NEGATIVE_Y;
+        const leftX = boundary - edgeInset;
+        const rightX = boundary + edgeInset;
 
-        // Cover the complete source-monitor sides so fast diagonal movement
-        // cannot bypass an endpoint of the shared segment.
-        this._addBarrier(
-            boundary - edgeInset, left.y,
-            boundary - edgeInset, left.y + left.height,
-            Meta.BarrierDirection.NEGATIVE_X | parallel);
-        this._addBarrier(
-            boundary + edgeInset, right.y,
-            boundary + edgeInset, right.y + right.height,
-            Meta.BarrierDirection.POSITIVE_X | parallel);
+        this._addVerticalSideBarrier(
+            leftX, left, Meta.BarrierDirection.NEGATIVE_X,
+            leftX - edgeInset, leftX);
+        this._addVerticalSideBarrier(
+            rightX, right, Meta.BarrierDirection.POSITIVE_X,
+            rightX, rightX + edgeInset);
     }
 
     _addHorizontalBarriers(boundary, top, bottom) {
         const edgeInset = this._settings.get_int('edge-inset');
-        const parallel = Meta.BarrierDirection.POSITIVE_X |
+        const topY = boundary - edgeInset;
+        const bottomY = boundary + edgeInset;
+
+        this._addHorizontalSideBarrier(
+            topY, top, Meta.BarrierDirection.NEGATIVE_Y,
+            topY - edgeInset, topY);
+        this._addHorizontalSideBarrier(
+            bottomY, bottom, Meta.BarrierDirection.POSITIVE_Y,
+            bottomY, bottomY + edgeInset);
+    }
+
+    _addVerticalSideBarrier(x, monitor, inward, capStart, capEnd) {
+        const vertical = Meta.BarrierDirection.POSITIVE_Y |
+            Meta.BarrierDirection.NEGATIVE_Y;
+        const horizontal = Meta.BarrierDirection.POSITIVE_X |
             Meta.BarrierDirection.NEGATIVE_X;
+        const bottom = monitor.y + monitor.height;
+
+        // The main barrier covers the complete source-monitor side. The two
+        // perpendicular caps prevent diagonal motion around either endpoint.
+        this._addBarrier(
+            x, monitor.y, x, bottom,
+            inward | vertical);
+        this._addBarrier(
+            capStart, monitor.y, capEnd, monitor.y,
+            Meta.BarrierDirection.POSITIVE_Y | horizontal,
+            false);
+        this._addBarrier(
+            capStart, bottom, capEnd, bottom,
+            Meta.BarrierDirection.NEGATIVE_Y | horizontal,
+            false);
+    }
+
+    _addHorizontalSideBarrier(y, monitor, inward, capStart, capEnd) {
+        const horizontal = Meta.BarrierDirection.POSITIVE_X |
+            Meta.BarrierDirection.NEGATIVE_X;
+        const vertical = Meta.BarrierDirection.POSITIVE_Y |
+            Meta.BarrierDirection.NEGATIVE_Y;
+        const right = monitor.x + monitor.width;
 
         this._addBarrier(
-            top.x, boundary - edgeInset,
-            top.x + top.width, boundary - edgeInset,
-            Meta.BarrierDirection.NEGATIVE_Y | parallel);
+            monitor.x, y, right, y,
+            inward | horizontal);
         this._addBarrier(
-            bottom.x, boundary + edgeInset,
-            bottom.x + bottom.width, boundary + edgeInset,
-            Meta.BarrierDirection.POSITIVE_Y | parallel);
+            monitor.x, capStart, monitor.x, capEnd,
+            Meta.BarrierDirection.POSITIVE_X | vertical,
+            false);
+        this._addBarrier(
+            right, capStart, right, capEnd,
+            Meta.BarrierDirection.NEGATIVE_X | vertical,
+            false);
     }
 
     _addOuterEdgeBarriers(monitors) {
