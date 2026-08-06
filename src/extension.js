@@ -19,13 +19,9 @@ import { Registry, invalidateConnectors, monitorIndexOf } from './monitorState.j
 import { placementConnector } from './placement.js';
 import { Keybindings } from './keybindings.js';
 import { Persistence } from './persistence.js';
-import { Indicator } from './indicator.js';
 import { SwitcherPopup } from './switcherPopup.js';
-import { SlideController } from './slide.js';
+import { PointerBarrier } from './pointerBarrier.js';
 import { isApplying, isHiddenByUs, forget } from './visibility.js';
-import * as AltTabFilter from './altTab.js';
-import * as OverviewFilter from './overview.js';
-import * as ScrollFilter from './scroll.js';
 
 const MUTTER_SCHEMA = 'org.gnome.mutter';
 const ONLY_ON_PRIMARY = 'workspaces-only-on-primary';
@@ -99,57 +95,13 @@ export default class WorkspaceIslands extends Extension {
         this._connectSignals();
         this._bindKeys();
 
-        // Takes over the panel's own workspace dots rather than adding a second
-        // indicator beside them. See indicator.js.
-        this._indicator = new Indicator({
-            getFocusedState: () => this._registry?.forFocusedMonitor() ?? null,
-        });
-
-        // The panel only exists on the primary monitor. This one appears on the
-        // monitor that actually changed.
+        // Feedback follows the monitor that changed, without depending on the
+        // GNOME 50 panel-indicator internals.
         this._popup = new SwitcherPopup(this._settings);
 
-        // Owns both the touchpad gesture and the slide. See slide.js for why
-        // those are one thing and not two.
-        this._slide = new SlideController({
-            settings: this._settings,
-            getState: index => this._registry?.forMonitorIndex(index) ?? null,
-            onCommit: (state, index, { gesture }) =>
-                this._commitSwitch(state, index, { announce: !gesture }),
-            onProgress: (state, value) =>
-                this._indicator?.setPreview(state, value),
-        });
-
-        AltTabFilter.patch();
-
-        // Super + wheel on the desktop. The overview has its own scroll seam
-        // and already worked; this is the one outside it.
-        ScrollFilter.patch({
-            getState: () => this._registry?.forPointerMonitor() ?? null,
-
-            // Through _requestSwitch, so the wheel slides exactly like the
-            // shortcuts and the gesture do. The OSD is left to announce it, as
-            // it does on the primary monitor.
-            onScroll: (state, index, forward) =>
-                this._requestSwitch(state, index, forward),
-
-            log: message => this._log(message),
-        });
-
-        OverviewFilter.patch({
-            getState: index => this._registry?.forMonitorIndex(index) ?? null,
-
-            // The overview is already showing the result, so this commits
-            // silently: no minimize animation to play under it, no OSD to
-            // announce what the user just watched themselves choose.
-            onActivate: (state, index) =>
-                this._commitSwitch(state, index, { announce: false }),
-
-            onDrop: (state, index, window, monitorIndex) =>
-                this._dropWindow(state, index, window, monitorIndex),
-
-            log: message => this._log(message),
-        });
+        // Prevent accidental pointer travel between the primary and secondary
+        // displays while keeping a single shortcut to unlock it.
+        this._pointerBarrier = new PointerBarrier(this._settings);
 
         // Unconditional, not behind debug-logging: when nothing appears to
         // happen, the first question is always whether this even loaded, and
@@ -160,10 +112,6 @@ export default class WorkspaceIslands extends Extension {
     }
 
     disable() {
-        AltTabFilter.unpatch();
-        ScrollFilter.unpatch();
-        OverviewFilter.unpatch();
-
         // Before the registry goes: a settle firing into a half-dismantled
         // extension has nothing left to settle against. Nothing is left
         // half-done by dropping it — the synchronous half of the handler has
@@ -180,16 +128,11 @@ export default class WorkspaceIslands extends Extension {
         this._persistence?.destroy();
         this._persistence = null;
 
-        this._indicator?.destroy();
-        this._indicator = null;
-
         this._popup?.destroy();
         this._popup = null;
 
-        // Before restoreAll(): an in-flight slide holds windows un-minimized
-        // behind a cover, and tearing that down has to settle them first.
-        this._slide?.destroy();
-        this._slide = null;
+        this._pointerBarrier?.destroy();
+        this._pointerBarrier = null;
 
         // Restoration is unconditional. A window left hidden after unload is
         // invisible and unreachable — nothing else here matters more.
@@ -302,10 +245,6 @@ export default class WorkspaceIslands extends Extension {
             if (connector)
                 this._registry.forConnector(connector)?.untrack(window);
 
-            // untrack() can shrink the monitor in dynamic mode, which the
-            // panel dots need to hear about the same way _trackWindow() and
-            // the 'unmanaged' handler already tell them about a change.
-            this._indicator?.sync();
         });
 
         // Mutter announces a layout change before it applies one, and it moves
@@ -326,12 +265,6 @@ export default class WorkspaceIslands extends Extension {
 
         this._connect(Main.layoutManager, 'monitors-changed', () => {
             invalidateConnectors();
-
-            // First, and unconditionally. A slide in flight is pinned to a
-            // monitor index and is holding windows un-minimized behind a cover;
-            // neither survives a display arriving or leaving, and it has to go
-            // while the state still holds the groups it will be settled against.
-            this._slide?.cancel();
 
             const live = this._registry.syncMonitors();
 
@@ -512,7 +445,6 @@ export default class WorkspaceIslands extends Extension {
             return;
 
         state.track(window, -1, { trustPlacement });
-        this._indicator?.sync();
 
         if (this._windowSignals.has(window))
             return;
@@ -525,7 +457,6 @@ export default class WorkspaceIslands extends Extension {
                 // next reapply().
                 this._registry?.untrackEverywhere(window);
                 this._disconnectWindow(window);
-                this._indicator?.sync();
             }),
             window.connect('notify::minimized', () => {
                 this._onMinimizedChanged(window);
@@ -597,6 +528,11 @@ export default class WorkspaceIslands extends Extension {
         this._keys.add('switch-prev', () => this._switchRelative(-1));
         this._keys.add('move-window-to-next', () => this._moveFocused(1));
         this._keys.add('move-window-to-prev', () => this._moveFocused(-1));
+        this._keys.add('toggle-pointer-barrier', () => {
+            const enabled = this._pointerBarrier?.toggle();
+            Main.notify('Workspace Islands',
+                enabled ? _('Pointer barrier enabled') : _('Pointer barrier disabled'));
+        });
     }
 
     /**
@@ -628,10 +564,7 @@ export default class WorkspaceIslands extends Extension {
         if (index < 0 || index >= state.size || index === state.activeIndex)
             return;
 
-        if (this._slide?.animateSwitch(state, index, forward))
-            return;
-
-        this._commitSwitch(state, index, { slid: false });
+        this._commitSwitch(state, index);
     }
 
     /**
@@ -649,8 +582,8 @@ export default class WorkspaceIslands extends Extension {
      * fingers is the feedback. Tying the popup to "did it slide" would silence
      * it for every shortcut.
      */
-    _commitSwitch(state, index, { slid = true, announce = true } = {}) {
-        if (!state.switchTo(index, { animate: !slid }))
+    _commitSwitch(state, index, { announce = true } = {}) {
+        if (!state.switchTo(index))
             return;
 
         if (announce)
@@ -668,7 +601,6 @@ export default class WorkspaceIslands extends Extension {
     /** Single place where a state change is persisted, shown and logged. */
     _afterChange(message) {
         this._persistence?.scheduleSave(this._registry);
-        this._indicator?.sync();
         this._log(message);
     }
 
