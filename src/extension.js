@@ -62,36 +62,60 @@ export default class MonitorPointerLockExtension extends Extension {
             first.x, first.x + first.width,
             second.x, second.x + second.width);
 
-        // A vertical shared edge: the monitors are side by side.
+        // A vertical shared edge: the monitors are side by side. The positive
+        // and negative barriers must sit on adjacent pixels, not on the same
+        // coordinate. A positive-X barrier at `boundary` holds the cursor one
+        // pixel *inside* the right monitor; placing it at `boundary - 1`
+        // holds it on the left monitor where it belongs.
         if (vertical && first.x + first.width === second.x) {
-            this._addBarrierPair(second.x, vertical[0], second.x, vertical[1],
-                Meta.BarrierDirection.POSITIVE_X, Meta.BarrierDirection.NEGATIVE_X);
+            this._addDirectionalBarriers(
+                second.x, vertical[0], vertical[1],
+                Meta.BarrierDirection.POSITIVE_X,
+                Meta.BarrierDirection.NEGATIVE_X,
+                'x');
         } else if (vertical && second.x + second.width === first.x) {
-            this._addBarrierPair(first.x, vertical[0], first.x, vertical[1],
-                Meta.BarrierDirection.POSITIVE_X, Meta.BarrierDirection.NEGATIVE_X);
+            this._addDirectionalBarriers(
+                first.x, vertical[0], vertical[1],
+                Meta.BarrierDirection.POSITIVE_X,
+                Meta.BarrierDirection.NEGATIVE_X,
+                'x');
         // A horizontal shared edge: one monitor is above the other.
         } else if (horizontal && first.y + first.height === second.y) {
-            this._addBarrierPair(horizontal[0], second.y, horizontal[1], second.y,
-                Meta.BarrierDirection.POSITIVE_Y, Meta.BarrierDirection.NEGATIVE_Y);
+            this._addDirectionalBarriers(
+                second.y, horizontal[0], horizontal[1],
+                Meta.BarrierDirection.POSITIVE_Y,
+                Meta.BarrierDirection.NEGATIVE_Y,
+                'y');
         } else if (horizontal && second.y + second.height === first.y) {
-            this._addBarrierPair(horizontal[0], first.y, horizontal[1], first.y,
-                Meta.BarrierDirection.POSITIVE_Y, Meta.BarrierDirection.NEGATIVE_Y);
+            this._addDirectionalBarriers(
+                first.y, horizontal[0], horizontal[1],
+                Meta.BarrierDirection.POSITIVE_Y,
+                Meta.BarrierDirection.NEGATIVE_Y,
+                'y');
         }
     }
 
-    _addBarrierPair(x1, y1, x2, y2, forward, backward) {
-        for (const directions of [forward, backward]) {
-            const barrier = new Meta.Barrier({
-                backend: global.backend,
-                x1,
-                y1,
-                x2,
-                y2,
-                directions,
-            });
-            barrier.connect('hit', (_barrier, event) => this._onBarrierHit(barrier, event));
-            this._barriers.push(barrier);
+    _addDirectionalBarriers(boundary, start, end, forward, backward, axis) {
+        if (axis === 'x') {
+            this._addBarrier(boundary - 1, start, boundary - 1, end, forward);
+            this._addBarrier(boundary, start, boundary, end, backward);
+        } else {
+            this._addBarrier(start, boundary - 1, end, boundary - 1, forward);
+            this._addBarrier(start, boundary, end, boundary, backward);
         }
+    }
+
+    _addBarrier(x1, y1, x2, y2, directions) {
+        const barrier = new Meta.Barrier({
+            backend: global.backend,
+            x1,
+            y1,
+            x2,
+            y2,
+            directions,
+        });
+        barrier.connect('hit', (_barrier, event) => this._onBarrierHit(barrier, event));
+        this._barriers.push(barrier);
     }
 
     _isCtrlDown() {
