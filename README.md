@@ -72,6 +72,13 @@ The geometry is isolated from GNOME Shell and covered by deterministic and
 seeded randomized tests for side-by-side, stacked, staggered, and multi-monitor
 layouts. Run them with `make test`.
 
+## Privacy
+
+The extension runs entirely inside GNOME Shell. It has no network access,
+telemetry, analytics, or external services, and it does not record pointer
+positions. Its only persistent data is the user-controlled GSettings
+configuration described above.
+
 ## Troubleshooting
 
 Check whether GNOME loaded the extension:
@@ -91,3 +98,11 @@ To immediately stop it, disable the extension:
 ```bash
 gnome-extensions disable monitor-pointer-lock@incirci.github.io
 ```
+
+## License and attribution
+
+Licensed under the [Apache License 2.0](LICENSE). Redistributions and derived
+works must preserve the applicable copyright, license, and attribution notices,
+including the project’s [NOTICE](NOTICE) file.
+
+Copyright 2026 Taner Incirci.
