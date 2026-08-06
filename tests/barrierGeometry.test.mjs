@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Taner Incirci
+ */
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
