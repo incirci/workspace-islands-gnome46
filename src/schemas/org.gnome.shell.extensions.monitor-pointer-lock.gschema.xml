@@ -17,5 +17,12 @@
         Distance in logical pixels from a shared monitor edge where the pointer is held.
       </description>
     </key>
+    <key name="keep-pointer-visible" type="b">
+      <default>true</default>
+      <summary>Keep the pointer visible at outer edges</summary>
+      <description>
+        Keep the pointer inset from bottom and right physical desktop edges.
+      </description>
+    </key>
   </schema>
 </schemalist>
