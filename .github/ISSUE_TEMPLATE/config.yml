@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/incirci/gnome-monitor-pointer-lock/security/advisories/new
+    about: Please report security-sensitive issues privately, not in a public issue.
