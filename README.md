@@ -10,6 +10,8 @@ side-by-side or vertically stacked monitors.
 This extension only controls pointer movement. It does not change GNOME
 workspaces, window placement, display configuration, or keyboard shortcuts.
 
+![Animation showing monitor crossing blocked without Ctrl and allowed while Ctrl is held](docs/media/monitor-pointer-lock-demo.gif)
+
 ## Requirements
 
 - GNOME Shell 46
