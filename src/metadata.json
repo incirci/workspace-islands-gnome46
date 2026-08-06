@@ -1,0 +1,9 @@
+{
+  "uuid": "monitor-pointer-lock@incirci.github.io",
+  "name": "Monitor Pointer Lock",
+  "description": "Keeps the pointer on its current monitor until Ctrl is held while crossing a display edge.",
+  "shell-version": ["46"],
+  "version-name": "1.0.0",
+  "settings-schema": "org.gnome.shell.extensions.monitor-pointer-lock",
+  "url": "https://github.com/incirci/gnome-monitor-pointer-lock"
+}

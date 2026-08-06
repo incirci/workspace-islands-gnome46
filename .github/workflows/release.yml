@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      # Tags, not just the commit: the previous one is needed to scope the
+      # generated changelog, and a shallow checkout has none.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GLib tools
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-bin
+
+      # A tag that disagrees with the metadata would ship an archive claiming a
+      # version nobody released. Cheaper to fail here than to yank a release.
+      - name: Tag matches version-name
+        run: |
+          python3 - <<'EOF'
+          import json, os, pathlib, sys
+
+          tag = os.environ['GITHUB_REF_NAME']
+          declared = json.loads(pathlib.Path('src/metadata.json').read_text())['version-name']
+
+          if tag != f'v{declared}':
+              sys.exit(f'tag {tag!r} does not match version-name {declared!r} (expected v{declared})')
+
+          print(f'ok: {tag}')
+          EOF
+
+      - name: Build the bundle
+        run: make pack
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uuid=$(python3 -c "import json;print(json.load(open('src/metadata.json'))['uuid'])")
+
+          # --notes-start-tag only when there is a previous tag to start from.
+          # On the first release there is none, and passing an empty value is
+          # not the same as omitting the flag.
+          previous=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          scope=()
+          [ -n "$previous" ] && scope=(--notes-start-tag "$previous")
+
+          # The notes file is prepended to the generated changelog, not
+          # replaced by it. It lives outside this workflow because a heredoc
+          # holding markdown inside a YAML block scalar is one stray column
+          # away from making the whole file unparseable.
+          gh release create "$GITHUB_REF_NAME" \
+            "$uuid.shell-extension.zip" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "${scope[@]}" \
+            --notes-file .github/release-notes.md
