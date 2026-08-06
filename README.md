@@ -46,6 +46,9 @@ gsettings --schemadir src/schemas set org.gnome.shell.extensions.monitor-pointer
 ```
 
 The enabled/disabled state is available in the same preferences window.
+The **Keep pointer visible at outer edges** option also prevents the cursor
+image from disappearing beyond bottom and right physical display edges. It is
+enabled by default and uses the same inset distance.
 
 ## Install from source
 
