@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Taner Incirci
+ */
+
 export const BlockedDirection = Object.freeze({
     POSITIVE_X: 'positive-x',
     NEGATIVE_X: 'negative-x',
