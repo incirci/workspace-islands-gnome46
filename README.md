@@ -62,11 +62,15 @@ Log out and back in, then run `make enable`.
 
 ## How it works
 
-The extension places Mutter pointer barriers only along the edges actually
-shared by two monitors. On reaching one, Mutter holds the cursor at that edge.
-If Ctrl is down at that moment, the extension releases that barrier event and
-the cursor crosses normally. Unplugging, reconnecting, or rearranging monitors
-rebuilds the barriers automatically.
+The extension builds a closed set of directional Mutter barriers around every
+monitor. Sections shared with another monitor are released only when Ctrl is
+down; physical outside edges remain closed. Perpendicular corner barriers stop
+diagonal or high-speed motion from bypassing an endpoint. Unplugging,
+reconnecting, or rearranging monitors rebuilds the geometry automatically.
+
+The geometry is isolated from GNOME Shell and covered by deterministic and
+seeded randomized tests for side-by-side, stacked, staggered, and multi-monitor
+layouts. Run them with `make test`.
 
 ## Troubleshooting
 
