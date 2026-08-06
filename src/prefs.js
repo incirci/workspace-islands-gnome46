@@ -34,6 +34,7 @@ const SHORTCUTS = [
     ['switch-to-8', 'Switch to workspace 8'],
     ['move-window-to-prev', 'Move window to previous workspace'],
     ['move-window-to-next', 'Move window to next workspace'],
+    ['toggle-pointer-barrier', 'Toggle pointer barrier'],
 ];
 
 export default class WorkspaceIslandsPreferences extends ExtensionPreferences {
@@ -84,7 +85,7 @@ export default class WorkspaceIslandsPreferences extends ExtensionPreferences {
         group.add(count);
 
         page.add(group);
-        page.add(this._feelGroup(settings));
+        page.add(this._pointerBarrierGroup(settings));
         page.add(this._diagnosticsGroup());
 
         const debugGroup = new Adw.PreferencesGroup({ title: _('Troubleshooting') });
@@ -100,37 +101,21 @@ export default class WorkspaceIslandsPreferences extends ExtensionPreferences {
         return page;
     }
 
-    /**
-     * The three things that decide whether this feels like GNOME.
-     *
-     * All default on. They are switches rather than assumptions because each
-     * one buys its polish with something real — the slide clones windows while
-     * it runs, and the gesture claims three-finger swipes on secondary
-     * monitors.
-     */
-    _feelGroup(settings) {
+    _pointerBarrierGroup(settings) {
         const group = new Adw.PreferencesGroup({
-            title: _('Switching'),
-            description: _('Matches how GNOME switches its own workspaces.'),
+            title: _('Display separation'),
+            description: _('Keep the pointer on its current display until you ' +
+                'explicitly turn the barrier off.'),
         });
 
-        const rows = [
-            ['touchpad-gesture', _('Touchpad gesture'),
-                _('Three-finger swipe over a secondary monitor. GNOME’s own ' +
-                'gesture ignores those, so nothing is taken from the primary.')],
-            ['switch-animation', _('Slide animation'),
-                _('Slide between workspaces instead of showing the minimize ' +
-                'animation. Clones the windows involved while it runs.')],
-            ['switcher-popup', _('On-screen indicator'),
-                _('The workspace dots GNOME shows on a switch, on the monitor ' +
-                'that changed.')],
-        ];
-
-        for (const [key, title, subtitle] of rows) {
-            const row = new Adw.SwitchRow({ title, subtitle });
-            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-            group.add(row);
-        }
+        const row = new Adw.SwitchRow({
+            title: _('Pointer barrier'),
+            subtitle: _('Blocks crossing at a shared edge between the primary ' +
+                'display and a secondary display.'),
+        });
+        settings.bind('pointer-barrier-enabled', row, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        group.add(row);
 
         return group;
     }
