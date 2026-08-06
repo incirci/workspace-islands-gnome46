@@ -11,8 +11,6 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const EDGE_INSET = 8;
-
 export default class MonitorPointerLockExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
@@ -22,6 +20,8 @@ export default class MonitorPointerLockExtension extends Extension {
                 'monitors-changed', () => this._rebuild())],
             [this._settings, this._settings.connect(
                 'changed::enabled', () => this._rebuild())],
+            [this._settings, this._settings.connect(
+                'changed::edge-inset', () => this._rebuild())],
         ];
 
         this._rebuild();
@@ -90,26 +90,27 @@ export default class MonitorPointerLockExtension extends Extension {
 
     _addDirectionalBarriers(boundary, start, end,
         towardNegative, towardPositive, axis) {
+        const edgeInset = this._settings.get_int('edge-inset');
         if (axis === 'x') {
             // Meta.Barrier directions are allowed directions. The barrier in
             // the left monitor allows leftward motion back into that monitor;
             // the one in the right monitor allows rightward motion back.
             this._addBarrier(
-                boundary - EDGE_INSET, start,
-                boundary - EDGE_INSET, end,
+                boundary - edgeInset, start,
+                boundary - edgeInset, end,
                 towardNegative);
             this._addBarrier(
-                boundary + EDGE_INSET, start,
-                boundary + EDGE_INSET, end,
+                boundary + edgeInset, start,
+                boundary + edgeInset, end,
                 towardPositive);
         } else {
             this._addBarrier(
-                start, boundary - EDGE_INSET,
-                end, boundary - EDGE_INSET,
+                start, boundary - edgeInset,
+                end, boundary - edgeInset,
                 towardNegative);
             this._addBarrier(
-                start, boundary + EDGE_INSET,
-                end, boundary + EDGE_INSET,
+                start, boundary + edgeInset,
+                end, boundary + edgeInset,
                 towardPositive);
         }
     }
