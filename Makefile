@@ -2,10 +2,13 @@ UUID := monitor-pointer-lock@incirci.github.io
 SRC := $(CURDIR)/src
 TARGET := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
-.PHONY: schemas install uninstall enable disable status pack
+.PHONY: schemas test install uninstall enable disable status pack
 
 schemas:
 	glib-compile-schemas $(SRC)/schemas
+
+test:
+	node --test tests/*.test.mjs
 
 install: schemas
 	@if [ -e "$(TARGET)" ] && [ ! -L "$(TARGET)" ]; then \
