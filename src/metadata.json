@@ -1,16 +1,16 @@
 {
-  "uuid": "workspace-islands@danielbernalo.github.io",
-  "name": "Workspace Islands",
-  "description": "Independent per-monitor workspaces for GNOME Shell — rotate workspaces on one monitor without touching the others. No tiling.",
+  "uuid": "workspace-islands-gnome46@incirci.github.io",
+  "name": "Workspace Islands (GNOME 46)",
+  "description": "Independent secondary-monitor workspaces for GNOME Shell 46, with an optional pointer barrier between displays.",
   "shell-version": [
-    "50"
+    "46"
   ],
   "session-modes": [
     "user",
     "unlock-dialog"
   ],
-  "version-name": "0.1.2",
+  "version-name": "0.2.0-gnome46",
   "settings-schema": "org.gnome.shell.extensions.workspace-islands",
   "gettext-domain": "workspace-islands",
-  "url": "https://github.com/danielbernalo/gnome-workspace-islands"
+  "url": "https://github.com/incirci/workspace-islands-gnome46"
 }
