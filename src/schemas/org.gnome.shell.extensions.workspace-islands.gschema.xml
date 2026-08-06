@@ -56,6 +56,16 @@
       <summary>Log state transitions to the journal</summary>
     </key>
 
+    <key name="pointer-barrier-enabled" type="b">
+      <default>true</default>
+      <summary>Block the pointer between the primary and secondary displays</summary>
+      <description>
+        Creates a Mutter pointer barrier at every shared edge between the
+        primary display and a secondary display. Turn it off temporarily with
+        the configurable toggle shortcut.
+      </description>
+    </key>
+
     <key name="saved-state" type="s">
       <default>''</default>
       <summary>Serialised per-monitor arrangement</summary>
@@ -119,6 +129,11 @@
     <key name="move-window-to-prev" type="as">
       <default><![CDATA[['<Super><Alt><Shift>Left']]]></default>
       <summary>Move the focused window to the previous virtual workspace</summary>
+    </key>
+
+    <key name="toggle-pointer-barrier" type="as">
+      <default><![CDATA[['<Super><Alt>m']]></default>
+      <summary>Toggle the pointer barrier</summary>
     </key>
 
   </schema>
