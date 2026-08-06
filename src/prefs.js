@@ -35,6 +35,15 @@ export default class MonitorPointerLockPreferences extends ExtensionPreferences 
         });
         settings.bind('edge-inset', edgeInset, 'value', Gio.SettingsBindFlags.DEFAULT);
         group.add(edgeInset);
+
+        const keepPointerVisible = new Adw.SwitchRow({
+            title: 'Keep pointer visible at outer edges',
+            subtitle: 'Inset the pointer at bottom and right desktop edges',
+        });
+        settings.bind(
+            'keep-pointer-visible', keepPointerVisible, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        group.add(keepPointerVisible);
         page.add(group);
         window.add(page);
     }
