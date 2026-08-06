@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a reproducible Monitor Pointer Lock problem.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please do not include private information or passwords.
+  - type: input
+    id: shell-version
+    attributes:
+      label: GNOME Shell version
+      description: Run `gnome-shell --version`.
+      placeholder: "GNOME Shell 46.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: session-type
+    attributes:
+      label: Session type
+      options:
+        - Wayland
+        - X11
+        - Other / unknown
+    validations:
+      required: true
+  - type: textarea
+    id: layout
+    attributes:
+      label: Monitor layout
+      description: Describe the monitors' arrangement, resolutions, and which edges are affected. A screenshot of GNOME Displays is helpful.
+      placeholder: "Two monitors side-by-side; 1920x1080 on the left, 2560x1440 on the right."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Enable the extension.
+        2. Move the pointer to …
+        3. Hold / do not hold Ctrl …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Optional. Include only lines relevant to the problem, for example from `journalctl -b -o cat /usr/bin/gnome-shell`.
+      render: shell
