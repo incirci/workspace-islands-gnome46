@@ -33,6 +33,20 @@ gnome-extensions enable monitor-pointer-lock@incirci.github.io
 
 You can turn it off temporarily in the extension’s preferences window.
 
+## Configuration
+
+Open the extension’s preferences to change **Edge inset**, the distance inside
+each monitor where crossing is blocked. The default is 12 logical pixels and
+the valid range is 1–64. Changes take effect immediately.
+
+You can also change it from a terminal:
+
+```bash
+gsettings --schemadir src/schemas set org.gnome.shell.extensions.monitor-pointer-lock edge-inset 12
+```
+
+The enabled/disabled state is available in the same preferences window.
+
 ## Install from source
 
 ```bash
