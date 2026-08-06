@@ -6,7 +6,13 @@
 
 </div>
 
-**Independent workspaces on every monitor, for GNOME Shell 50.** Switch workspaces on one screen and the others stay exactly where you left them. No tiling, no new window manager, no relearning GNOME.
+**Independent secondary-monitor workspaces for GNOME Shell 46.** Switch workspaces on a secondary screen while the primary monitor stays exactly where you left it. No tiling, no new window manager, no relearning GNOME.
+
+> This is a GNOME 46-focused derivative of [Daniel Bernalo's Workspace
+> Islands](https://github.com/danielbernalo/gnome-workspace-islands), released
+> under the same GPL-2.0 licence. It keeps the robust virtual-workspace core
+> and intentionally omits the upstream GNOME-50-specific overview, gesture and
+> panel-indicator integrations.
 
 Each monitor is its own island: it keeps its own set of workspaces, and nothing you do on one disturbs the rest.
 
@@ -24,11 +30,13 @@ GNOME gives you exactly two multi-monitor modes, and neither is what most people
 
 Truly independent per-monitor workspaces, macOS style, [have been requested for years](https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/5195) and do not exist natively.
 
-The closest existing extension is [Switch workspaces on active monitor](https://extensions.gnome.org/extension/2911/), which simulates the switch on whichever monitor is active and supports up to GNOME 48. This one targets 50, keeps per-monitor state that survives a logout, and integrates with the panel indicator, the overview and the touchpad gestures rather than only remapping a shortcut.
+The upstream project targets GNOME 50. This fork keeps its monitor-aware state,
+window grouping and persistence, but targets GNOME 46 with stable keyboard and
+popup APIs.
 
 ## Before you install
 
-- [ ] **GNOME Shell 50**, on Wayland
+- [ ] **GNOME Shell 46**, on Wayland (Ubuntu 24.04 LTS)
 - [ ] **At least two monitors** — the extension only acts on non-primary ones, so a single display gives it nothing to do
 - [ ] **PaperWM disabled**, if you have it — the two fight over the same mutter setting with opposite values
 - [ ] `org.gnome.mutter workspaces-only-on-primary` set to `true`
@@ -44,17 +52,17 @@ gsettings set org.gnome.mutter workspaces-only-on-primary true
 Not on [extensions.gnome.org](https://extensions.gnome.org) yet — that route needs review time. Until then, grab the bundle from [Releases](../../releases/latest):
 
 ```bash
-gnome-extensions install --force workspace-islands@danielbernalo.github.io.shell-extension.zip
+gnome-extensions install --force workspace-islands-gnome46@incirci.github.io.shell-extension.zip
 ```
 
 <details>
 <summary>Or build it from source</summary>
 
 ```bash
-git clone https://github.com/danielbernalo/gnome-workspace-islands
-cd gnome-workspace-islands
+git clone https://github.com/incirci/workspace-islands-gnome46
+cd workspace-islands-gnome46
 make pack
-gnome-extensions install --force workspace-islands@danielbernalo.github.io.shell-extension.zip
+gnome-extensions install --force workspace-islands-gnome46@incirci.github.io.shell-extension.zip
 ```
 
 Needs `python3` and `glib-compile-schemas`, both of which you already have on a GNOME system. The build is deterministic — the same commit always produces the same archive, so you can check yours against the released one.
@@ -66,7 +74,7 @@ Now **log out and back in**. Wayland cannot reload the shell in place, and until
 That last part is why enabling comes *after* the restart and not before — run it any earlier and you get `Extension … does not exist`, because you are asking a shell that has not looked yet:
 
 ```bash
-gnome-extensions enable workspace-islands@danielbernalo.github.io
+gnome-extensions enable workspace-islands-gnome46@incirci.github.io
 ```
 
 The Extensions app does the same thing with a switch, if you would rather.
@@ -74,7 +82,7 @@ The Extensions app does the same thing with a switch, if you would rather.
 Verify it came up:
 
 ```bash
-gnome-extensions info workspace-islands@danielbernalo.github.io   # State: ACTIVE
+gnome-extensions info workspace-islands-gnome46@incirci.github.io   # State: ACTIVE
 ```
 
 If it says `ERROR`, open the Extensions app — it shows the failure with a stack trace, which is the fastest way to report a useful bug.
@@ -99,15 +107,13 @@ All of them are rebindable in preferences.
 
 | Gesture | Where | Action |
 | --- | --- | --- |
-| Three-finger swipe ← / → | On a secondary monitor | Switch workspace, following your fingers |
-| Three-finger swipe ← / → | In the overview | Same, on the monitor under the pointer |
-| Two-finger scroll | In the overview | Switch workspace |
-| Mouse wheel | In the overview | Switch workspace |
-| `Super` + mouse wheel | On a secondary monitor | Switch workspace, one notch at a time |
+| `Super+Alt+M` | Anywhere | Toggle the pointer barrier between displays |
 
-Over the primary monitor every gesture stays GNOME's own, untouched.
+This GNOME 46 build deliberately uses keyboard switching only. The GNOME 50
+overview and gesture hooks were removed rather than relying on incompatible
+private Shell APIs.
 
-### The overview
+### The overview (not yet supported in this GNOME 46 build)
 
 Press `Super`. A secondary monitor now scrolls through its virtual workspaces the way the primary scrolls through native ones — active workspace centred, neighbours peeking at the edges, thumbnail strip above.
 
@@ -115,7 +121,7 @@ Press `Super`. A secondary monitor now scrolls through its virtual workspaces th
 - **Drag a window onto a thumbnail** to move it to that workspace.
 - **Drag a window in from the primary monitor** and drop it on the page you are looking at.
 
-### Reading where you are
+### Reading where you are (not yet supported in this GNOME 46 build)
 
 The **workspace dots in the top bar** — the ones that replaced the "Activities" label in GNOME 48 — follow the monitor you are working on. Focused on the primary, they show native workspaces and behave exactly as they always have. Move focus to a secondary monitor and the same dots show that monitor's workspaces instead. One indicator, always describing the screen you are on.
 
@@ -126,7 +132,7 @@ On a switch, the familiar **pill with dots** appears on the monitor that changed
 Open with the gear in the Extensions app, or:
 
 ```bash
-gnome-extensions prefs workspace-islands@danielbernalo.github.io
+gnome-extensions prefs workspace-islands-gnome46@incirci.github.io
 ```
 
 ### Virtual workspaces
@@ -194,7 +200,7 @@ gsettings set org.gnome.shell disable-user-extensions true
 Set it back to `false` when you are done. To disable only this one:
 
 ```bash
-gnome-extensions disable workspace-islands@danielbernalo.github.io
+gnome-extensions disable workspace-islands-gnome46@incirci.github.io
 ```
 
 **Workspaces are leaking into each other.** Something turned `workspaces-only-on-primary` off. The extension notifies you when this happens; the Diagnostics section in preferences turns it back on.
