@@ -125,6 +125,7 @@ export default class MonitorPointerLockExtension extends Extension {
             x2,
             y2,
             directions,
+            flags: Meta.BarrierFlags.NONE,
         });
         const hitId = barrier.connect('hit', (_barrier, event) =>
             this._onBarrierHit(barrier, event));
@@ -137,10 +138,20 @@ export default class MonitorPointerLockExtension extends Extension {
     }
 
     _onBarrierHit(barrier, event) {
-        if (this._unlockedWithCtrl || !this._isCtrlDown())
+        if (this._unlockedWithCtrl)
             return;
 
         barrier.release(event);
+
+        if (!this._isCtrlDown()) {
+            // Mutter keeps a hit barrier in HELD state. Recreate it after
+            // releasing this event so movement back into the source monitor
+            // is immediately possible, while the next crossing attempt is
+            // blocked by a fresh barrier at the same inset.
+            this._rebuild();
+            return;
+        }
+
         this._clearBarriers();
         this._unlockedWithCtrl = true;
         this._modifierPollId = GLib.timeout_add(
