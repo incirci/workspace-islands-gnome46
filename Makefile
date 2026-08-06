@@ -2,7 +2,7 @@ UUID := monitor-pointer-lock@incirci.github.io
 SRC := $(CURDIR)/src
 TARGET := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
-.PHONY: schemas test install uninstall enable disable status pack
+.PHONY: schemas test release-check install uninstall enable disable status pack
 
 schemas:
 	glib-compile-schemas $(SRC)/schemas
@@ -10,17 +10,17 @@ schemas:
 test:
 	node --test tests/*.test.mjs
 
+release-check:
+	bash scripts/release-check.sh
+
 install: schemas
-	@if [ -e "$(TARGET)" ] && [ ! -L "$(TARGET)" ]; then \
-		echo "ERROR: $(TARGET) exists and is not a symlink. Remove the old installed copy first."; exit 1; \
-	fi
+	@if [ -e "$(TARGET)" ] && [ ! -L "$(TARGET)" ]; then 		echo "ERROR: $(TARGET) exists and is not a symlink. Remove the old installed copy first."; exit 1; 	fi
 	@rm -f "$(TARGET)"
 	@ln -s "$(SRC)" "$(TARGET)"
 	@echo "Installed development link: $(TARGET)"
 
 uninstall:
-	@if [ -L "$(TARGET)" ]; then rm -f "$(TARGET)"; echo "Uninstalled development link"; \
-	else echo "Nothing to uninstall"; fi
+	@if [ -L "$(TARGET)" ]; then rm -f "$(TARGET)"; echo "Uninstalled development link"; 	else echo "Nothing to uninstall"; fi
 
 enable:
 	gnome-extensions enable $(UUID)
