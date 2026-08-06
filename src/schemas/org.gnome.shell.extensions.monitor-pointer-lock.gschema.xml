@@ -9,5 +9,13 @@
         Prevent pointer movement between monitors unless Ctrl is held while crossing a shared display edge.
       </description>
     </key>
+    <key name="edge-inset" type="i">
+      <range min="1" max="64"/>
+      <default>12</default>
+      <summary>Pointer barrier inset</summary>
+      <description>
+        Distance in logical pixels from a shared monitor edge where the pointer is held.
+      </description>
+    </key>
   </schema>
 </schemalist>
