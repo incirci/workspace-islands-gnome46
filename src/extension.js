@@ -70,50 +70,54 @@ export default class MonitorPointerLockExtension extends Extension {
         if (vertical && first.x + first.width === second.x) {
             this._addDirectionalBarriers(
                 second.x, vertical[0], vertical[1],
-                Meta.BarrierDirection.POSITIVE_X,
                 Meta.BarrierDirection.NEGATIVE_X,
+                Meta.BarrierDirection.POSITIVE_X,
                 'x');
         } else if (vertical && second.x + second.width === first.x) {
             this._addDirectionalBarriers(
                 first.x, vertical[0], vertical[1],
-                Meta.BarrierDirection.POSITIVE_X,
                 Meta.BarrierDirection.NEGATIVE_X,
+                Meta.BarrierDirection.POSITIVE_X,
                 'x');
         // A horizontal shared edge: one monitor is above the other.
         } else if (horizontal && first.y + first.height === second.y) {
             this._addDirectionalBarriers(
                 second.y, horizontal[0], horizontal[1],
-                Meta.BarrierDirection.POSITIVE_Y,
                 Meta.BarrierDirection.NEGATIVE_Y,
+                Meta.BarrierDirection.POSITIVE_Y,
                 'y');
         } else if (horizontal && second.y + second.height === first.y) {
             this._addDirectionalBarriers(
                 first.y, horizontal[0], horizontal[1],
-                Meta.BarrierDirection.POSITIVE_Y,
                 Meta.BarrierDirection.NEGATIVE_Y,
+                Meta.BarrierDirection.POSITIVE_Y,
                 'y');
         }
     }
 
-    _addDirectionalBarriers(boundary, start, end, forward, backward, axis) {
+    _addDirectionalBarriers(boundary, start, end,
+        towardNegative, towardPositive, axis) {
         if (axis === 'x') {
+            // Meta.Barrier directions are allowed directions. The barrier in
+            // the left monitor allows leftward motion back into that monitor;
+            // the one in the right monitor allows rightward motion back.
             this._addBarrier(
                 boundary - EDGE_INSET, start,
                 boundary - EDGE_INSET, end,
-                forward);
+                towardNegative);
             this._addBarrier(
                 boundary + EDGE_INSET, start,
                 boundary + EDGE_INSET, end,
-                backward);
+                towardPositive);
         } else {
             this._addBarrier(
                 start, boundary - EDGE_INSET,
                 end, boundary - EDGE_INSET,
-                forward);
+                towardNegative);
             this._addBarrier(
                 start, boundary + EDGE_INSET,
                 end, boundary + EDGE_INSET,
-                backward);
+                towardPositive);
         }
     }
 
@@ -141,17 +145,12 @@ export default class MonitorPointerLockExtension extends Extension {
         if (this._unlockedWithCtrl)
             return;
 
-        barrier.release(event);
-
-        if (!this._isCtrlDown()) {
-            // Mutter keeps a hit barrier in HELD state. Recreate it after
-            // releasing this event so movement back into the source monitor
-            // is immediately possible, while the next crossing attempt is
-            // blocked by a fresh barrier at the same inset.
-            this._rebuild();
+        // With correctly directed barriers, Mutter permits movement away from
+        // a hit barrier without intervention. Only release it for Ctrl.
+        if (!this._isCtrlDown())
             return;
-        }
 
+        barrier.release(event);
         this._clearBarriers();
         this._unlockedWithCtrl = true;
         this._modifierPollId = GLib.timeout_add(
