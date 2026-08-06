@@ -1,0 +1,34 @@
+name: Release extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install schema compiler
+        run: sudo apt-get update && sudo apt-get install --yes libglib2.0-bin
+      - name: Check tag version
+        run: |
+          version=$(node -p "require('./src/metadata.json')['version-name']")
+          test "${GITHUB_REF_NAME}" = "v${version}"
+      - name: Build and verify release archive
+        run: make release-check
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            monitor-pointer-lock@incirci.github.io.shell-extension.zip \
+            --title "Monitor Pointer Lock ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/release-notes.md
